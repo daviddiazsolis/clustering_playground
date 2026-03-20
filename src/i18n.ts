@@ -3,7 +3,7 @@ export type Language = 'en' | 'es';
 export const translations = {
   en: {
     // Hero
-    heroTitle: 'ClusterLab: Interactive Unsupervised Learning',
+    heroTitle: 'Clustering Playground: Interactive Unsupervised Learning',
     heroSubtitle: 'Clustering is an unsupervised learning technique that seeks to find hidden structures in data by grouping similar observations. Explore, visualize, and compare in real-time how different algorithms behave.',
     
     // Theory
@@ -215,7 +215,7 @@ export const translations = {
   },
   es: {
     // Hero
-    heroTitle: 'ClusterLab: Aprendizaje No Supervisado Interactivo',
+    heroTitle: 'Clustering Playground: Aprendizaje No Supervisado Interactivo',
     heroSubtitle: 'El clustering (o agrupamiento) es una técnica de aprendizaje no supervisado que busca encontrar estructuras ocultas en los datos, agrupando observaciones similares. Explora, visualiza y compara en tiempo real cómo se comportan los diferentes algoritmos.',
     
     // Theory
