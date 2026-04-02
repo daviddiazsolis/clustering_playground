@@ -209,7 +209,12 @@ export const translations = {
     refLink4: 'Visualizing DBSCAN Clustering — Naftali Harris\'s interactive visualization for DBSCAN',
     refLink5: 'How HDBSCAN Works — deep dive into hierarchical density-based clustering',
 
-    // Footer
+    notebooksTitle: 'Python Notebooks',
+    notebooksSubtitle: 'Run the full analysis in Google Colab — no installation required.',
+    notebooksOpenColab: 'Open in Colab',
+    notebooksViewGitHub: 'View on GitHub',
+    notebooksClustering: 'Clustering — K-Means, Hierarchical & DBSCAN',
+    notebooksClusteringDesc: 'Work with 6 synthetic datasets to see why geometry matters, compare scaling strategies, tune each algorithm, and run a full bank customer segmentation case study.',
     footerCreatedBy: 'Created by',
     footerLiveCoded: 'This site was \'live coded\' with the help of Google AI Studio.',
   },
@@ -421,6 +426,12 @@ export const translations = {
     refLink4: 'Visualizing DBSCAN Clustering — visualización interactiva de Naftali Harris para DBSCAN',
     refLink5: 'How HDBSCAN Works — inmersión profunda en el clustering jerárquico basado en densidad',
 
+    notebooksTitle: 'Notebooks Python',
+    notebooksSubtitle: 'Ejecuta el análisis completo en Google Colab — sin instalación.',
+    notebooksOpenColab: 'Abrir en Colab',
+    notebooksViewGitHub: 'Ver en GitHub',
+    notebooksClustering: 'Clustering — K-Means, Jerárquico & DBSCAN',
+    notebooksClusteringDesc: 'Trabaja con 6 datasets sintéticos para ver por qué importa la geometría, compara estrategias de escalamiento, ajusta cada algoritmo y ejecuta un caso de estudio completo de segmentación bancaria.',
     // Footer
     footerCreatedBy: 'Creado por',
     footerLiveCoded: 'Este sitio fue \'live coded\' con la ayuda de Google AI Studio.',

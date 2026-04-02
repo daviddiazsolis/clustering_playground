@@ -11,6 +11,7 @@ import { HierarchicalClustering } from './components/HierarchicalClustering';
 import { CustomerSegmentation } from './components/CustomerSegmentation';
 import { BusinessApplications } from './components/BusinessApplications';
 import { Activities } from './components/Activities';
+import { NotebooksSection } from './components/NotebooksSection';
 import { References } from './components/References';
 import { Footer } from './components/Footer';
 import { TranslationWidget } from './components/TranslationWidget';
@@ -30,6 +31,7 @@ export default function App() {
           <CustomerSegmentation />
           <BusinessApplications />
           <Activities />
+          <NotebooksSection />
           <References />
         </main>
         <Footer />
