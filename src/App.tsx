@@ -15,11 +15,13 @@ import { NotebooksSection } from './components/NotebooksSection';
 import { References } from './components/References';
 import { Footer } from './components/Footer';
 import { TranslationWidget } from './components/TranslationWidget';
+import { ThemeProvider } from './context/ThemeContext';
 import { LanguageProvider } from './context/LanguageContext';
 
 export default function App() {
   return (
-    <LanguageProvider>
+    <ThemeProvider>
+      <LanguageProvider>
       <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-emerald-500/30 selection:text-emerald-200">
         <TranslationWidget />
         <Hero />
@@ -36,7 +38,8 @@ export default function App() {
         </main>
         <Footer />
       </div>
-    </LanguageProvider>
+      </LanguageProvider>
+    </ThemeProvider>
   );
 }
 
