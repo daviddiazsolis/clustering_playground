@@ -6,7 +6,7 @@ export function Hero() {
   const { t } = useLanguage();
 
   return (
-    <header className="bg-zinc-950 text-white py-20 relative overflow-hidden border-b border-zinc-800">
+    <header className="bg-zinc-950 text-zinc-100 py-20 relative overflow-hidden border-b border-zinc-800">
       <div className="absolute inset-0 opacity-10">
         <svg className="h-full w-full" xmlns="http://www.w3.org/2000/svg">
           <defs>
