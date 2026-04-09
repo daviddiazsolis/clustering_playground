@@ -18,15 +18,18 @@ html.light {
   --color-zinc-100: #18181b;
 
   /* Accent text shades — darkened for legibility on white backgrounds.
-     Only -200 through -400 are remapped; -500/-600 are kept as-is so
+     Only -100 through -400 are remapped; -500/-600 are kept as-is so
      bg-emerald-500 (run button) and bg-blue-600 (algo buttons) are unaffected. */
+  --color-blue-100:    #1e3a8a;
+  --color-blue-200:    #1e40af;
+  --color-blue-300:    #1e40af;
+  --color-blue-400:    #1d4ed8;
   --color-emerald-200: #065f46;
   --color-emerald-300: #047857;
   --color-emerald-400: #047857;
+  --color-amber-200:   #92400e;
   --color-amber-300:   #b45309;
   --color-amber-400:   #92400e;
-  --color-blue-300:    #1e40af;
-  --color-blue-400:    #1d4ed8;
 }
 
 html.light ::-webkit-scrollbar-track  { background: #f4f4f5; }
