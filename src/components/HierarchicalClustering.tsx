@@ -387,18 +387,18 @@ function DendrogramPlot({ data, width, height, k, onSetK }: { data: d3.Hierarchy
   const cluster = d3.cluster().size([innerWidth, innerHeight]);
   const root = cluster(data);
 
-  // Calculate cut height based on K
-  // This is a simplified mapping: higher K means lower cut height
-  const cutY = innerHeight * (1 - (k - 1) / 10);
+  // Root is at y=0 (top), leaves at y=innerHeight (bottom).
+  // Higher cut (small y, near root) = fewer clusters; lower cut = more clusters.
+  const cutY = innerHeight * (k - 1) / 10;
 
   const handleSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
     const svg = e.currentTarget;
     const rect = svg.getBoundingClientRect();
     const y = e.clientY - rect.top - margin.top;
-    
+
     if (y > 0 && y < innerHeight) {
-      // Map Y to K (2 to 10)
-      const newK = Math.max(2, Math.min(10, Math.round(1 + (1 - y / innerHeight) * 9)));
+      // y near 0 (top/root) → k=1; y near innerHeight (bottom/leaves) → k=10
+      const newK = Math.max(1, Math.min(10, Math.round(1 + (y / innerHeight) * 9)));
       onSetK(newK);
     }
   };
