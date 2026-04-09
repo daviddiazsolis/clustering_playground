@@ -36,6 +36,8 @@ export function Playground() {
   const [minPts, setMinPts] = useState(5);
   const [bandwidth, setBandwidth] = useState(0.1);
   const [fixedSeed, setFixedSeed] = useState(true);
+  const [seedValue, setSeedValue] = useState(42);
+  const [lastSeed, setLastSeed] = useState<number | null>(null);
 
   const [data, setData] = useState<Point[]>([]);
   const is3D = datasetType === 'clusters3d';
@@ -82,9 +84,11 @@ export function Playground() {
     const start = performance.now();
     let res: number[] = [];
     let centroids: Point[] = [];
-    
+
     if (algorithm === 'kmeans') {
-      const result = kMeans(data, k, 100, fixedSeed ? 42 : undefined);
+      const actualSeed = fixedSeed ? seedValue : Math.floor(Math.random() * 100000);
+      setLastSeed(actualSeed);
+      const result = kMeans(data, k, 100, actualSeed);
       res = result.assignments;
       centroids = result.centroids;
     } else if (algorithm === 'dbscan') {
@@ -140,6 +144,7 @@ export function Playground() {
     setIsClustered(false);
     setExecutionTime(null);
     setMetrics(null);
+    setLastSeed(null);
   };
 
   return (
@@ -240,13 +245,11 @@ export function Playground() {
                     />
                   </div>
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-zinc-400 font-medium text-sm flex items-center gap-1.5">
-                        {fixedSeed ? <Lock className="w-3 h-3 text-amber-400" /> : <Shuffle className="w-3 h-3 text-emerald-400" />}
-                        {t('playSeedLabel')}
-                      </label>
-                    </div>
-                    <div title={t('playSeedTooltip')} className="flex rounded-lg overflow-hidden border border-zinc-700 text-xs font-medium">
+                    <label className="text-zinc-400 font-medium text-sm flex items-center gap-1.5 mb-2">
+                      {fixedSeed ? <Lock className="w-3 h-3 text-amber-400" /> : <Shuffle className="w-3 h-3 text-emerald-400" />}
+                      {t('playSeedLabel')}
+                    </label>
+                    <div className="flex rounded-lg overflow-hidden border border-zinc-700 text-xs font-medium mb-2">
                       <button
                         onClick={() => setFixedSeed(true)}
                         className={`flex-1 py-1.5 transition-colors ${fixedSeed ? 'bg-amber-500/20 text-amber-300 border-r border-zinc-700' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 border-r border-zinc-700'}`}
@@ -260,6 +263,23 @@ export function Playground() {
                         <Shuffle className="w-3 h-3 inline mr-1" />{t('playSeedRandom')}
                       </button>
                     </div>
+                    {fixedSeed && (
+                      <input
+                        type="number"
+                        min="0"
+                        max="999999"
+                        value={seedValue}
+                        onChange={(e) => setSeedValue(Math.max(0, parseInt(e.target.value) || 0))}
+                        className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs font-mono text-amber-300 focus:outline-none focus:border-amber-500"
+                      />
+                    )}
+                    {!fixedSeed && isClustered && lastSeed !== null && (
+                      <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-1.5">
+                        <Shuffle className="w-3 h-3 text-emerald-400 shrink-0" />
+                        <span className="text-[11px] text-zinc-400">{t('playSeedUsed')}</span>
+                        <span className="text-xs font-mono font-bold text-emerald-300 ml-auto">{lastSeed}</span>
+                      </div>
+                    )}
                     <p className="text-[10px] text-zinc-500 mt-1.5 leading-relaxed">{t('playSeedTooltip')}</p>
                   </div>
                 </div>
@@ -361,10 +381,16 @@ export function Playground() {
                         assignments[idx]
                       ].join(','))
                     ].join('\n');
+                    const params =
+                      algorithm === 'kmeans'
+                        ? `k${k}_seed${lastSeed ?? seedValue}`
+                        : algorithm === 'dbscan'
+                        ? `eps${eps.toFixed(2)}_minPts${minPts}`
+                        : `bw${bandwidth.toFixed(2)}`;
                     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                     const link = document.createElement('a');
                     link.href = URL.createObjectURL(blob);
-                    link.setAttribute('download', `${algorithm}_${datasetType}_results.csv`);
+                    link.setAttribute('download', `${algorithm}_${datasetType}_${params}.csv`);
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);

@@ -97,9 +97,10 @@ export const translations = {
     play3DDataset: '3D Clusters',
     play3DNote: 'Patterns in 3D: Clustering can find structures that are hard to see even in 3D, and it works the same way in 100 dimensions!',
     playSeedLabel: 'Random Seed',
-    playSeedFixed: 'Fixed (42)',
+    playSeedFixed: 'Fixed',
     playSeedRandom: 'Random',
     playSeedTooltip: 'With a fixed seed, K-Means always produces the same result. Toggle to Random to see how different initializations can lead to different cluster assignments.',
+    playSeedUsed: 'Seed used:',
     playExportBtn: 'Export CSV',
 
     // Business Applications
@@ -319,9 +320,10 @@ export const translations = {
     play3DDataset: 'Clusters 3D',
     play3DNote: 'Patrones en 3D: El clustering puede encontrar estructuras que son difíciles de ver incluso en 3D, ¡y funciona igual en 100 dimensiones!',
     playSeedLabel: 'Semilla Aleatoria',
-    playSeedFixed: 'Fija (42)',
+    playSeedFixed: 'Fija',
     playSeedRandom: 'Aleatoria',
     playSeedTooltip: 'Con semilla fija, K-Means siempre produce el mismo resultado. Cambia a Aleatoria para ver cómo distintas inicializaciones pueden llevar a asignaciones de clusters diferentes.',
+    playSeedUsed: 'Semilla usada:',
     playExportBtn: 'Exportar CSV',
 
     // Business Applications
