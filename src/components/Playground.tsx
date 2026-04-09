@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { motion } from 'motion/react';
-import { Play, RotateCcw, Settings2, AlertCircle, Timer, Activity, BarChart3, Info, HelpCircle, Box, Maximize2 } from 'lucide-react';
+import { Play, RotateCcw, Settings2, AlertCircle, Timer, Activity, BarChart3, Info, HelpCircle, Box, Maximize2, Download, Shuffle, Lock } from 'lucide-react';
 import { 
   generateBlobs, generateMoons, generateCircles, generateNoise, generateAniso, generateVaried, generate3DClouds,
   kMeans, dbscan, meanShift, calculateWCSS, calculateSilhouette, calculateDaviesBouldin, Point2D, Point3D, Point 
@@ -35,6 +35,7 @@ export function Playground() {
   const [eps, setEps] = useState(0.1);
   const [minPts, setMinPts] = useState(5);
   const [bandwidth, setBandwidth] = useState(0.1);
+  const [fixedSeed, setFixedSeed] = useState(true);
 
   const [data, setData] = useState<Point[]>([]);
   const is3D = datasetType === 'clusters3d';
@@ -67,7 +68,7 @@ export function Playground() {
     if (algorithm === 'kmeans') {
       const results = [];
       for (let i = 1; i <= 10; i++) {
-        const { assignments: clusterAssignments, centroids } = kMeans(newData, i);
+        const { assignments: clusterAssignments, centroids } = kMeans(newData, i, 100, 42);
         const wcss = calculateWCSS(newData, clusterAssignments, centroids);
         const silhouette = i > 1 ? calculateSilhouette(newData, clusterAssignments) : 0;
         const dbIndex = i > 1 ? calculateDaviesBouldin(newData, clusterAssignments, centroids) : 0;
@@ -83,7 +84,7 @@ export function Playground() {
     let centroids: Point[] = [];
     
     if (algorithm === 'kmeans') {
-      const result = kMeans(data, k);
+      const result = kMeans(data, k, 100, fixedSeed ? 42 : undefined);
       res = result.assignments;
       centroids = result.centroids;
     } else if (algorithm === 'dbscan') {
@@ -238,6 +239,29 @@ export function Playground() {
                       className="w-full accent-emerald-500"
                     />
                   </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-zinc-400 font-medium text-sm flex items-center gap-1.5">
+                        {fixedSeed ? <Lock className="w-3 h-3 text-amber-400" /> : <Shuffle className="w-3 h-3 text-emerald-400" />}
+                        {t('playSeedLabel')}
+                      </label>
+                    </div>
+                    <div title={t('playSeedTooltip')} className="flex rounded-lg overflow-hidden border border-zinc-700 text-xs font-medium">
+                      <button
+                        onClick={() => setFixedSeed(true)}
+                        className={`flex-1 py-1.5 transition-colors ${fixedSeed ? 'bg-amber-500/20 text-amber-300 border-r border-zinc-700' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 border-r border-zinc-700'}`}
+                      >
+                        <Lock className="w-3 h-3 inline mr-1" />{t('playSeedFixed')}
+                      </button>
+                      <button
+                        onClick={() => setFixedSeed(false)}
+                        className={`flex-1 py-1.5 transition-colors ${!fixedSeed ? 'bg-emerald-500/20 text-emerald-300' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
+                      >
+                        <Shuffle className="w-3 h-3 inline mr-1" />{t('playSeedRandom')}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-zinc-500 mt-1.5 leading-relaxed">{t('playSeedTooltip')}</p>
+                  </div>
                 </div>
               )}
 
@@ -323,6 +347,35 @@ export function Playground() {
                 </div>
               )}
 
+              {isClustered && (
+                <button
+                  onClick={() => {
+                    const dim = data[0]?.length ?? 2;
+                    const headers = dim === 3
+                      ? ['X', 'Y', 'Z', 'Cluster']
+                      : ['X', 'Y', 'Cluster'];
+                    const csvContent = [
+                      headers.join(','),
+                      ...data.map((point, idx) => [
+                        ...point.map(v => v.toFixed(4)),
+                        assignments[idx]
+                      ].join(','))
+                    ].join('\n');
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.setAttribute('download', `${algorithm}_${datasetType}_results.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-xs font-bold transition-colors border border-zinc-700"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  {t('playExportBtn')}
+                </button>
+              )}
+
               {isClustered && metrics && (
                 <div className="grid grid-cols-3 gap-2">
                   <div className="bg-zinc-950 p-2 rounded-xl border border-zinc-800 text-center">
@@ -370,10 +423,10 @@ export function Playground() {
                     <pointLight position={[10, 10, 10]} />
                     <Suspense fallback={null}>
                       <group key={`data-${data.length}-${datasetType}`} position={[-0.5, -0.5, -0.5]}>
-                        {/* Bounding Box */}
-                        <mesh>
+                        {/* Bounding Box — positioned at center of data range [0,1]³ */}
+                        <mesh position={[0.5, 0.5, 0.5]}>
                           <boxGeometry args={[1, 1, 1]} />
-                          <meshBasicMaterial color="#3f3f46" wireframe transparent opacity={0.1} />
+                          <meshBasicMaterial color="#3f3f46" wireframe transparent opacity={0.15} />
                         </mesh>
                         {data.map((point, idx) => {
                           const clusterId = assignments[idx];

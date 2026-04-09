@@ -107,14 +107,27 @@ export function generate3DClouds(n: number): Point3D[] {
   return data;
 }
 
-export function kMeans(data: Point[], k: number, maxIter = 100): { assignments: number[], centroids: Point[] } {
+// Simple seeded PRNG (mulberry32) — returns values in [0, 1)
+function seededRandom(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s += 0x6d2b79f5;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export function kMeans(data: Point[], k: number, maxIter = 100, seed?: number): { assignments: number[], centroids: Point[] } {
   if (data.length === 0) return { assignments: [], centroids: [] };
   const dim = data[0].length;
-  
+  const rand = seed !== undefined ? seededRandom(seed) : Math.random;
+
   const centroids: Point[] = [];
   const indices = new Set<number>();
   while (centroids.length < k && centroids.length < data.length) {
-    const idx = Math.floor(Math.random() * data.length);
+    const idx = Math.floor(rand() * data.length);
     if (!indices.has(idx)) {
       indices.add(idx);
       centroids.push([...data[idx]]);
