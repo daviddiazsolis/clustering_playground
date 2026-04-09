@@ -5,6 +5,7 @@
    utility flips automatically — no component changes needed.
 */
 html.light {
+  /* Neutrals — fully inverted */
   --color-zinc-950: #fafafa;
   --color-zinc-900: #f4f4f5;
   --color-zinc-800: #e4e4e7;
@@ -15,6 +16,17 @@ html.light {
   --color-zinc-300: #3f3f46;
   --color-zinc-200: #27272a;
   --color-zinc-100: #18181b;
+
+  /* Accent text shades — darkened for legibility on white backgrounds.
+     Only -200 through -400 are remapped; -500/-600 are kept as-is so
+     bg-emerald-500 (run button) and bg-blue-600 (algo buttons) are unaffected. */
+  --color-emerald-200: #065f46;
+  --color-emerald-300: #047857;
+  --color-emerald-400: #047857;
+  --color-amber-300:   #b45309;
+  --color-amber-400:   #92400e;
+  --color-blue-300:    #1e40af;
+  --color-blue-400:    #1d4ed8;
 }
 
 html.light ::-webkit-scrollbar-track  { background: #f4f4f5; }

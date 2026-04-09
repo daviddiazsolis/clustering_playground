@@ -485,12 +485,12 @@ function DendrogramPlot({
           );
         })}
 
-        {/* Cut line */}
+        {/* Cut line — use blue so it's visible in both dark and light mode */}
         <line x1={0} x2={innerWidth} y1={cutY} y2={cutY}
-          stroke="#ffffff" strokeWidth="1.5" strokeDasharray="4 3" strokeOpacity={0.6}
+          stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="4 3"
           className="transition-all duration-300" />
-        <text x={innerWidth - 4} y={cutY - 5} fill="#ffffff"
-          fontSize="10" fontWeight="bold" textAnchor="end" opacity={0.8}>
+        <text x={innerWidth - 4} y={cutY - 5} fill="#3b82f6"
+          fontSize="10" fontWeight="bold" textAnchor="end">
           K={k}
         </text>
 

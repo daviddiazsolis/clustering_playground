@@ -6,6 +6,7 @@ import {
   kMeans, dbscan, meanShift, calculateWCSS, calculateSilhouette, calculateDaviesBouldin, Point2D, Point3D, Point 
 } from '../utils/clustering';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Stars, Float } from '@react-three/drei';
@@ -26,6 +27,8 @@ const COLORS = [
 
 export function Playground() {
   const { t } = useLanguage();
+  const { theme } = useTheme();
+  const noiseColor = theme === 'light' ? '#52525b' : '#d4d4d8';
   const [datasetType, setDatasetType] = useState<DatasetType>('blobs');
   const [algorithm, setAlgorithm] = useState<AlgorithmType>('kmeans');
   const [numPoints, setNumPoints] = useState(300);
@@ -457,7 +460,7 @@ export function Playground() {
                         {data.map((point, idx) => {
                           const clusterId = assignments[idx];
                           let color = '#71717a'; // zinc-400 for better visibility
-                          if (clusterId === -2) color = '#ffffff';
+                          if (clusterId === -2) color = noiseColor;
                           else if (clusterId >= 0) color = COLORS[clusterId % COLORS.length];
 
                           return (
@@ -486,7 +489,7 @@ export function Playground() {
                     let fill = '#52525b'; // default unclustered (zinc-600)
                     
                     if (clusterId === -2) {
-                      fill = '#ffffff'; // Noise in DBSCAN (white)
+                      fill = noiseColor; // Noise in DBSCAN
                     } else if (clusterId >= 0) {
                       fill = COLORS[clusterId % COLORS.length];
                     }
