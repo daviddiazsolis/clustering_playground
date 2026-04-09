@@ -423,13 +423,13 @@ function DendrogramPlot({ data, width, height, k, onSetK }: { data: d3.Hierarchy
           strokeDasharray="4 4"
           className="transition-all duration-300"
         />
-        <text 
-          x={innerWidth + 5} 
-          y={cutY} 
-          fill="#3b82f6" 
-          fontSize="10" 
+        <text
+          x={innerWidth - 4}
+          y={cutY - 5}
+          fill="#3b82f6"
+          fontSize="10"
           fontWeight="bold"
-          dominantBaseline="middle"
+          textAnchor="end"
         >
           K={k}
         </text>
