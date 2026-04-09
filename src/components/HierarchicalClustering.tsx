@@ -225,11 +225,12 @@ export function HierarchicalClustering() {
               </h3>
               <div className="flex-1 bg-zinc-950 rounded-2xl border border-zinc-800 overflow-hidden relative group">
                 {dendrogramData && (
-                  <DendrogramPlot 
-                    data={dendrogramData} 
-                    width={400} 
-                    height={300} 
+                  <DendrogramPlot
+                    data={dendrogramData}
+                    width={400}
+                    height={300}
                     k={k}
+                    assignments={assignments}
                     onSetK={setK}
                   />
                 )}
@@ -379,96 +380,131 @@ export function HierarchicalClustering() {
   );
 }
 
-function DendrogramPlot({ data, width, height, k, onSetK }: { data: d3.HierarchyNode<any>, width: number, height: number, k: number, onSetK: (k: number) => void }) {
-  const margin = { top: 20, right: 20, bottom: 40, left: 40 };
+function DendrogramPlot({
+  data, width, height, k, assignments, onSetK
+}: {
+  data: d3.HierarchyNode<any>, width: number, height: number,
+  k: number, assignments: number[], onSetK: (k: number) => void
+}) {
+  const margin = { top: 20, right: 30, bottom: 40, left: 30 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
 
-  const cluster = d3.cluster().size([innerWidth, innerHeight]);
-  const root = cluster(data);
+  // Use d3.cluster only for leaf x-ordering; we override y with real distances.
+  const clusterLayout = d3.cluster<any>().size([innerWidth, innerHeight]);
+  const root = clusterLayout(data);
 
-  // Root is at y=0 (top), leaves at y=innerHeight (bottom).
-  // Higher cut (small y, near root) = fewer clusters; lower cut = more clusters.
-  const cutY = innerHeight * (k - 1) / 10;
+  const maxDist: number = (data.data as any).distance ?? 1;
+
+  // Override y on every node: internal nodes → proportional to merge distance,
+  // leaves → bottom of chart.
+  root.each((node: any) => {
+    node.dy = node.children
+      ? innerHeight * (1 - (node.data.distance ?? 0) / maxDist)
+      : innerHeight;
+  });
+
+  // Sort internal nodes by distance descending to find the cut threshold.
+  const internalNodes: any[] = root.descendants().filter((n: any) => n.children);
+  internalNodes.sort((a, b) => (b.data.distance ?? 0) - (a.data.distance ?? 0));
+
+  // The cut distance sits between the (k-1)th and k-th highest merge distances,
+  // so exactly k branches cross the line.
+  let cutDist: number;
+  if (k <= 1) {
+    cutDist = maxDist * 1.05; // above root → 1 cluster
+  } else if (k - 1 >= internalNodes.length) {
+    cutDist = 0; // below all merges → each point is its own cluster
+  } else {
+    const above = internalNodes[k - 2].data.distance ?? 0;
+    const below = internalNodes[k - 1]?.data.distance ?? 0;
+    cutDist = (above + below) / 2;
+  }
+  const cutY = innerHeight * (1 - cutDist / maxDist);
+
+  // Returns the cluster id if ALL leaves in this subtree share the same cluster,
+  // otherwise null (mixed subtree → neutral color).
+  const subtreeCluster = (node: any): number | null => {
+    if (!node.children) {
+      const name: string = node.data.name ?? '';
+      const idx = parseInt(name.substring(1));
+      if (isNaN(idx)) return null;
+      const c = assignments[idx];
+      return c !== undefined && c >= 0 ? c : null;
+    }
+    const l = subtreeCluster(node.children[0]);
+    const r = subtreeCluster(node.children[1]);
+    return l !== null && l === r ? l : null;
+  };
 
   const handleSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
     const svg = e.currentTarget;
     const rect = svg.getBoundingClientRect();
     const y = e.clientY - rect.top - margin.top;
+    if (y < 0 || y > innerHeight) return;
 
-    if (y > 0 && y < innerHeight) {
-      // y near 0 (top/root) → k=1; y near innerHeight (bottom/leaves) → k=10
-      const newK = Math.max(1, Math.min(10, Math.round(1 + (y / innerHeight) * 9)));
-      onSetK(newK);
-    }
+    const clickDist = maxDist * (1 - y / innerHeight);
+    const aboveCut = internalNodes.filter(n => (n.data.distance ?? 0) > clickDist).length;
+    const newK = Math.max(1, Math.min(10, aboveCut + 1));
+    onSetK(newK);
   };
 
+  const neutralColor = '#52525b';
+
   return (
-    <svg 
-      width="100%" 
-      height="100%" 
-      viewBox={`0 0 ${width} ${height}`} 
+    <svg
+      width="100%"
+      height="100%"
+      viewBox={`0 0 ${width} ${height}`}
       className="overflow-visible cursor-crosshair"
       onClick={handleSvgClick}
     >
       <g transform={`translate(${margin.left}, ${margin.top})`}>
-        {/* Cut Line */}
-        <line 
-          x1={0} 
-          x2={innerWidth} 
-          y1={cutY} 
-          y2={cutY} 
-          stroke="#3b82f6" 
-          strokeWidth="2" 
-          strokeDasharray="4 4"
-          className="transition-all duration-300"
-        />
-        <text
-          x={innerWidth - 4}
-          y={cutY - 5}
-          fill="#3b82f6"
-          fontSize="10"
-          fontWeight="bold"
-          textAnchor="end"
-        >
+
+        {/* L-shaped links, each segment colored by its subtree's cluster */}
+        {internalNodes.map((node, i) => {
+          const [left, right] = node.children;
+          const nodeCluster  = subtreeCluster(node);
+          const leftCluster  = subtreeCluster(left);
+          const rightCluster = subtreeCluster(right);
+          const hColor = nodeCluster  !== null ? COLORS[nodeCluster  % COLORS.length] : neutralColor;
+          const lColor = leftCluster  !== null ? COLORS[leftCluster  % COLORS.length] : neutralColor;
+          const rColor = rightCluster !== null ? COLORS[rightCluster % COLORS.length] : neutralColor;
+          return (
+            <g key={i}>
+              {/* horizontal bar at merge height */}
+              <line x1={left.x} x2={right.x} y1={node.dy} y2={node.dy}
+                stroke={hColor} strokeWidth="1.5" className="transition-colors duration-400" />
+              {/* vertical to left child */}
+              <line x1={left.x}  x2={left.x}  y1={node.dy} y2={left.dy}
+                stroke={lColor} strokeWidth="1.5" className="transition-colors duration-400" />
+              {/* vertical to right child */}
+              <line x1={right.x} x2={right.x} y1={node.dy} y2={right.dy}
+                stroke={rColor} strokeWidth="1.5" className="transition-colors duration-400" />
+            </g>
+          );
+        })}
+
+        {/* Cut line */}
+        <line x1={0} x2={innerWidth} y1={cutY} y2={cutY}
+          stroke="#ffffff" strokeWidth="1.5" strokeDasharray="4 3" strokeOpacity={0.6}
+          className="transition-all duration-300" />
+        <text x={innerWidth - 4} y={cutY - 5} fill="#ffffff"
+          fontSize="10" fontWeight="bold" textAnchor="end" opacity={0.8}>
           K={k}
         </text>
 
-        {/* Links */}
-        {root.links().map((link, i) => (
-          <path
-            key={i}
-            d={d3.linkVertical()
-              .x((d: any) => d.x)
-              .y((d: any) => d.y)(link as any) || ''}
-            fill="none"
-            stroke={link.target.y > cutY ? "#3b82f6" : "#3f3f46"}
-            strokeWidth={link.target.y > cutY ? "2" : "1.5"}
-            className="transition-all duration-300"
-          />
-        ))}
-        {/* Nodes */}
-        {root.descendants().map((node, i) => (
-          <g key={i} transform={`translate(${node.x}, ${node.y})`}>
-            <circle
-              r={node.children ? 3 : 2}
-              fill={node.y > cutY ? '#3b82f6' : (node.children ? '#71717a' : '#3b82f6')}
-              className="transition-all duration-300"
-            />
-            {!node.children && (
-              <text
-                dy="0.31em"
-                y={10}
-                textAnchor="middle"
-                fontSize="6"
-                fill="#71717a"
-                transform="rotate(45)"
-              >
-                {(node.data as any).name}
-              </text>
-            )}
-          </g>
-        ))}
+        {/* Leaf dots */}
+        {root.leaves().map((node: any, i) => {
+          const name: string = node.data.name ?? '';
+          const idx = parseInt(name.substring(1));
+          const c = !isNaN(idx) && assignments[idx] >= 0 ? assignments[idx] : -1;
+          return (
+            <circle key={i} cx={node.x} cy={innerHeight} r={2.5}
+              fill={c >= 0 ? COLORS[c % COLORS.length] : neutralColor} />
+          );
+        })}
+
       </g>
     </svg>
   );
