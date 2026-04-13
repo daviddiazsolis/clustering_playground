@@ -222,7 +222,7 @@ export const translations = {
     notebooksClustering: 'Clustering — K-Means, Hierarchical & DBSCAN',
     notebooksClusteringDesc: 'Work with 6 synthetic datasets to see why geometry matters, compare scaling strategies, tune each algorithm, and run a full bank customer segmentation case study.',
     footerCreatedBy: 'Created by',
-    footerLiveCoded: 'This site was \'live coded\' with the help of Google AI Studio.',
+    footerLiveCoded: 'This site was \'live coded\' with the help of generative AI.',
   },
   es: {
     // Hero
@@ -446,6 +446,6 @@ export const translations = {
     notebooksClusteringDesc: 'Trabaja con 6 datasets sintéticos para ver por qué importa la geometría, compara estrategias de escalamiento, ajusta cada algoritmo y ejecuta un caso de estudio completo de segmentación bancaria.',
     // Footer
     footerCreatedBy: 'Creado por',
-    footerLiveCoded: 'Este sitio fue \'live coded\' con la ayuda de Google AI Studio.',
+    footerLiveCoded: 'Este sitio fue \'live coded\' con la ayuda de IA generativa.',
   }
 };
