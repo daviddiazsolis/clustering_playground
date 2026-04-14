@@ -1,9 +1,9 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { 
   Users, Table as TableIcon, Settings2, BarChart, 
   ArrowRight, Info, Database, Filter, CheckCircle2, Play,
-  Activity, BarChart3, HelpCircle, Download, Save
+  Activity, BarChart3, HelpCircle, Download
 } from 'lucide-react';
 import { kMeans, Point2D, calculateWCSS, calculateSilhouette, calculateDaviesBouldin } from '../utils/clustering';
 import { useLanguage } from '../context/LanguageContext';
@@ -46,7 +46,6 @@ export function CustomerSegmentation() {
     Married: 100,
     Divorced: 50,
   });
-  const pendingRestoreRef = useRef<any>(null);
   const [scaling, setScaling] = useState<Record<string, ScalingType>>({
     age: 'none',
     income: 'none',
@@ -61,7 +60,6 @@ export function CustomerSegmentation() {
   const [k, setK] = useState(3);
   const [results, setResults] = useState<{ assignments: number[], centroids: any[] } | null>(null);
   const [clusterNames, setClusterNames] = useState<string[]>(['Segment A', 'Segment B', 'Segment C', 'Segment D', 'Segment E', 'Segment F']);
-  const [snapshots, setSnapshots] = useState<any[]>([]);
 
   // Evaluation metrics
   const [metrics, setMetrics] = useState<{ wcss: number; silhouette: number; dbIndex: number } | null>(null);
@@ -135,15 +133,8 @@ export function CustomerSegmentation() {
       results.push({ k: i, wcss, silhouette, dbIndex });
     }
     setEvalData(results);
-    if (pendingRestoreRef.current) {
-      const snap = pendingRestoreRef.current;
-      pendingRestoreRef.current = null;
-      setResults({ assignments: snap.assignments, centroids: snap.centroids });
-      setMetrics(snap.metrics);
-    } else {
-      setResults(null);
-      setMetrics(null);
-    }
+    setResults(null);
+    setMetrics(null);
   }, [processedData, selectedFeatures]);
 
   const runSegmentation = () => {
@@ -462,63 +453,6 @@ export function CustomerSegmentation() {
                     </div>
                   </div>
 
-                  {/* Snapshots / Comparison */}
-                  <div className="pt-4 space-y-3">
-                    <button
-                      onClick={() => {
-                        if (!results) return;
-                        const newSnapshot = {
-                          id: Date.now(),
-                          k,
-                          metrics: { ...metrics },
-                          features: [...selectedFeatures],
-                          scaling: { ...scaling },
-                          encodingStrategy,
-                          statusMapping: { ...statusMapping },
-                          clusterNames: [...clusterNames],
-                          assignments: [...results.assignments],
-                          centroids: results.centroids.map((c: any) => [...c]),
-                          timestamp: new Date().toLocaleTimeString()
-                        };
-                        setSnapshots([newSnapshot, ...snapshots].slice(0, 3));
-                      }}
-                      className="w-full py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-[10px] font-bold transition-colors flex items-center justify-center gap-2 border border-zinc-700"
-                    >
-                      <Save className="w-3 h-3" />
-                      {t('segSaveSnapshot')}
-                    </button>
-
-                    {snapshots.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-[8px] font-bold text-zinc-500 uppercase">{t('segSnapshotsTitle')}</p>
-                        {snapshots.map((s) => (
-                          <div key={s.id} className="bg-zinc-950 p-2 rounded-lg border border-zinc-800 text-[9px] group/item relative">
-                            <div className="flex justify-between text-zinc-400 mb-1">
-                              <span>K={s.k} | {s.timestamp}</span>
-                              <span className="text-blue-400 font-mono">W:{s.metrics.wcss.toFixed(0)}</span>
-                            </div>
-                            <div className="truncate text-zinc-600 italic">
-                              {s.features.join(', ')}
-                            </div>
-                            <button
-                              onClick={() => {
-                                pendingRestoreRef.current = s;
-                                setEncodingStrategy(s.encodingStrategy);
-                                setStatusMapping({ ...s.statusMapping });
-                                setScaling({ ...s.scaling });
-                                setK(s.k);
-                                setSelectedFeatures([...s.features]);
-                                setClusterNames([...s.clusterNames]);
-                              }}
-                              className="absolute inset-0 bg-blue-600/90 text-white opacity-0 group-hover/item:opacity-100 transition-opacity flex items-center justify-center font-bold rounded-lg"
-                            >
-                              {t('segRestore')}
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
                 </>
               )}
             </div>
