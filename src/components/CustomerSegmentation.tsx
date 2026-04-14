@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { 
   Users, Table as TableIcon, Settings2, BarChart, 
@@ -8,8 +8,9 @@ import {
 import { kMeans, Point2D, calculateWCSS, calculateSilhouette, calculateDaviesBouldin } from '../utils/clustering';
 import { useLanguage } from '../context/LanguageContext';
 import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer, Legend, AreaChart, Area
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, Legend, AreaChart, Area,
+  BarChart, Bar
 } from 'recharts';
 
 interface Customer {
@@ -40,6 +41,12 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 export function CustomerSegmentation() {
   const { t } = useLanguage();
   const [encodingStrategy, setEncodingStrategy] = useState<EncodingType>('mapping');
+  const [statusMapping, setStatusMapping] = useState<Record<string, number>>({
+    Single: 0,
+    Married: 100,
+    Divorced: 50,
+  });
+  const pendingRestoreRef = useRef<any>(null);
   const [scaling, setScaling] = useState<Record<string, ScalingType>>({
     age: 'none',
     income: 'none',
@@ -64,8 +71,7 @@ export function CustomerSegmentation() {
     return MOCK_DATA.map(row => {
       const newRow: any = { ...row };
       if (encodingStrategy === 'mapping') {
-        const statusMap: Record<string, number> = { 'Single': 0, 'Married': 100, 'Divorced': 50 };
-        newRow.status_intensity = statusMap[row.status] || 0;
+        newRow.status_intensity = statusMapping[row.status] ?? 0;
       } else {
         STATUS_OPTIONS.forEach(s => {
           newRow[`is_${s.toLowerCase()}`] = row.status === s ? 1 : 0;
@@ -73,7 +79,7 @@ export function CustomerSegmentation() {
       }
       return newRow;
     });
-  }, [encodingStrategy]);
+  }, [encodingStrategy, statusMapping]);
 
   const availableFeatures = useMemo(() => {
     const base = ['age', 'income', 'spendingScore', 'savings'];
@@ -110,6 +116,13 @@ export function CustomerSegmentation() {
     return data;
   }, [encodedData, scaling, availableFeatures]);
 
+  const processedFeatureColumns = useMemo(() => {
+    const encodingCols = encodingStrategy === 'mapping'
+      ? ['status_intensity']
+      : ['is_single', 'is_married', 'is_divorced'];
+    return ['age', 'income', 'spendingScore', 'savings', ...encodingCols];
+  }, [encodingStrategy]);
+
   // Pre-calculate evaluation charts when data or features change
   useEffect(() => {
     const points: number[][] = processedData.map(d => selectedFeatures.map(f => (d as any)[f]));
@@ -122,8 +135,15 @@ export function CustomerSegmentation() {
       results.push({ k: i, wcss, silhouette, dbIndex });
     }
     setEvalData(results);
-    setResults(null);
-    setMetrics(null);
+    if (pendingRestoreRef.current) {
+      const snap = pendingRestoreRef.current;
+      pendingRestoreRef.current = null;
+      setResults({ assignments: snap.assignments, centroids: snap.centroids });
+      setMetrics(snap.metrics);
+    } else {
+      setResults(null);
+      setMetrics(null);
+    }
   }, [processedData, selectedFeatures]);
 
   const runSegmentation = () => {
@@ -206,20 +226,40 @@ export function CustomerSegmentation() {
     });
   }, [results, processedData, selectedFeatures, clusterNames]);
 
-  const featureImportance = useMemo(() => {
+  const anovaResults = useMemo(() => {
     if (!results) return [];
-    // Importance = Variance of centroids for each feature
-    const importance = selectedFeatures.map((f, featureIdx) => {
-      const vals = results.centroids.map(c => c[featureIdx]);
-      const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-      const variance = vals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / vals.length;
+    const assignments = results.assignments;
+    const N = encodedData.length;
+    const K = Math.max(...assignments) + 1;
+    const dfBetween = Math.max(1, K - 1);
+    const dfWithin = Math.max(1, N - K);
+
+    return selectedFeatures.map(f => {
+      const values = encodedData.map(d => (d as any)[f] as number);
+      const grandMean = values.reduce((a, b) => a + b, 0) / N;
+
+      const clusterVals: number[][] = Array.from({ length: K }, () => []);
+      assignments.forEach((k, i) => clusterVals[k].push(values[i]));
+
+      let ssBetween = 0;
+      let ssWithin = 0;
+      clusterVals.forEach(vals => {
+        if (vals.length === 0) return;
+        const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+        ssBetween += vals.length * Math.pow(mean - grandMean, 2);
+        vals.forEach(v => { ssWithin += Math.pow(v - mean, 2); });
+      });
+
+      const msBetween = ssBetween / dfBetween;
+      const msWithin = ssWithin / dfWithin;
+      const f_stat = msWithin > 1e-12 ? msBetween / msWithin : 0;
+
       return {
         name: f.replace(/_/g, ' ').toUpperCase(),
-        importance: variance
+        fStat: f_stat,
       };
-    });
-    return importance.sort((a, b) => b.importance - a.importance);
-  }, [results, selectedFeatures]);
+    }).sort((a, b) => b.fStat - a.fStat);
+  }, [results, selectedFeatures, encodedData]);
 
   return (
     <section id="segmentation" className="py-24 border-t border-zinc-800 scroll-mt-24">
@@ -272,6 +312,44 @@ export function CustomerSegmentation() {
                     One-Hot Encoding
                   </button>
                 </div>
+
+                {encodingStrategy === 'mapping' ? (
+                  <div className="mt-3 bg-zinc-950 p-3 rounded-lg border border-zinc-800">
+                    <p className="text-[9px] text-zinc-500 mb-2 leading-snug">
+                      Each status is replaced by one numeric intensity in the new column <span className="text-emerald-400 font-mono">status_intensity</span>. Edit the values to change the mapping.
+                    </p>
+                    <div className="space-y-1.5">
+                      {STATUS_OPTIONS.map(s => (
+                        <div key={s} className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] text-zinc-300 font-medium">{s}</span>
+                          <span className="text-zinc-600 text-[10px]">&rarr;</span>
+                          <input
+                            type="number"
+                            value={statusMapping[s]}
+                            onChange={(e) => setStatusMapping({
+                              ...statusMapping,
+                              [s]: parseFloat(e.target.value) || 0,
+                            })}
+                            className="w-20 bg-zinc-800 text-[10px] text-emerald-300 font-mono rounded px-2 py-1 border border-zinc-700 focus:ring-1 focus:ring-emerald-500 outline-none"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-3 bg-zinc-950 p-3 rounded-lg border border-zinc-800">
+                    <p className="text-[9px] text-zinc-500 mb-2 leading-snug">
+                      The Status column is expanded into 3 binary columns (0/1). Select any of them as features below.
+                    </p>
+                    <div className="grid grid-cols-3 gap-1 text-center">
+                      {['is_single', 'is_married', 'is_divorced'].map(c => (
+                        <div key={c} className="bg-zinc-800 text-amber-300 font-mono text-[9px] py-1 rounded border border-zinc-700">
+                          {c}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Feature Selection */}
@@ -388,11 +466,18 @@ export function CustomerSegmentation() {
                   <div className="pt-4 space-y-3">
                     <button
                       onClick={() => {
+                        if (!results) return;
                         const newSnapshot = {
                           id: Date.now(),
                           k,
                           metrics: { ...metrics },
                           features: [...selectedFeatures],
+                          scaling: { ...scaling },
+                          encodingStrategy,
+                          statusMapping: { ...statusMapping },
+                          clusterNames: [...clusterNames],
+                          assignments: [...results.assignments],
+                          centroids: results.centroids.map((c: any) => [...c]),
                           timestamp: new Date().toLocaleTimeString()
                         };
                         setSnapshots([newSnapshot, ...snapshots].slice(0, 3));
@@ -417,9 +502,13 @@ export function CustomerSegmentation() {
                             </div>
                             <button
                               onClick={() => {
+                                pendingRestoreRef.current = s;
+                                setEncodingStrategy(s.encodingStrategy);
+                                setStatusMapping({ ...s.statusMapping });
+                                setScaling({ ...s.scaling });
                                 setK(s.k);
-                                setSelectedFeatures(s.features);
-                                runSegmentation();
+                                setSelectedFeatures([...s.features]);
+                                setClusterNames([...s.clusterNames]);
                               }}
                               className="absolute inset-0 bg-blue-600/90 text-white opacity-0 group-hover/item:opacity-100 transition-opacity flex items-center justify-center font-bold rounded-lg"
                             >
@@ -438,6 +527,97 @@ export function CustomerSegmentation() {
 
         {/* Evaluation Charts & Results */}
         <div className="lg:col-span-8 space-y-8">
+          {/* Raw Data Preview */}
+          <div className="bg-zinc-900 rounded-3xl border border-zinc-800 overflow-hidden">
+            <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+                <TableIcon className="w-4 h-4 text-zinc-500" />
+                1. Raw Data
+              </h3>
+              <span className="text-[10px] text-zinc-500 font-mono">{MOCK_DATA.length} records · before encoding & scaling</span>
+            </div>
+            <div className="overflow-x-auto max-h-[260px]">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-zinc-950 text-zinc-500 sticky top-0">
+                  <tr>
+                    <th className="px-6 py-3 font-semibold">ID</th>
+                    <th className="px-6 py-3 font-semibold">Age</th>
+                    <th className="px-6 py-3 font-semibold">Income</th>
+                    <th className="px-6 py-3 font-semibold">Spending</th>
+                    <th className="px-6 py-3 font-semibold">Savings</th>
+                    <th className="px-6 py-3 font-semibold">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800">
+                  {MOCK_DATA.map((row) => (
+                    <tr key={row.id} className="hover:bg-zinc-800/30 transition-colors">
+                      <td className="px-6 py-3 text-zinc-500">#{row.id}</td>
+                      <td className="px-6 py-3 text-zinc-300">{row.age}</td>
+                      <td className="px-6 py-3 text-zinc-300">${row.income.toLocaleString()}</td>
+                      <td className="px-6 py-3 text-zinc-300">{row.spendingScore}</td>
+                      <td className="px-6 py-3 text-zinc-300">${row.savings.toLocaleString()}</td>
+                      <td className="px-6 py-3 text-zinc-300">{row.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Processed Data */}
+          <div className="bg-zinc-900 rounded-3xl border border-zinc-800 overflow-hidden">
+            <div className="p-6 border-b border-zinc-800 flex items-center justify-between flex-wrap gap-2">
+              <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+                <Filter className="w-4 h-4 text-emerald-500" />
+                2. Processed Data
+              </h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[9px] px-2 py-0.5 rounded bg-zinc-800 text-emerald-300 font-mono border border-zinc-700">
+                  encoding: {encodingStrategy === 'mapping' ? 'business mapping' : 'one-hot'}
+                </span>
+                {processedFeatureColumns.some(f => scaling[f] && scaling[f] !== 'none') && (
+                  <span className="text-[9px] px-2 py-0.5 rounded bg-zinc-800 text-blue-300 font-mono border border-zinc-700">
+                    scaling applied
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="overflow-x-auto max-h-[260px]">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-zinc-950 text-zinc-500 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">ID</th>
+                    {processedFeatureColumns.map(f => {
+                      const sc = scaling[f] || 'none';
+                      return (
+                        <th key={f} className="px-4 py-3 font-semibold">
+                          <div className="text-zinc-400">{f}</div>
+                          <div className="text-[8px] text-zinc-600 font-mono normal-case">
+                            {sc === 'none' ? 'raw' : sc === 'minmax' ? 'min-max' : 'z-score'}
+                          </div>
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800">
+                  {processedData.map((row: any) => (
+                    <tr key={row.id} className="hover:bg-zinc-800/30 transition-colors">
+                      <td className="px-4 py-2 text-zinc-500">#{row.id}</td>
+                      {processedFeatureColumns.map(f => (
+                        <td key={f} className="px-4 py-2 text-zinc-300 font-mono">
+                          {typeof row[f] === 'number'
+                            ? (Number.isInteger(row[f]) ? row[f] : row[f].toFixed(3))
+                            : '—'}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           {/* Evaluation Charts */}
           {evalData.length > 0 && (
             <div className="bg-zinc-900 rounded-3xl border border-zinc-800 p-6">
@@ -624,77 +804,35 @@ export function CustomerSegmentation() {
               <div className="lg:col-span-5 bg-zinc-900 rounded-3xl border border-zinc-800 p-6">
                 <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider mb-6 flex items-center gap-2">
                   <BarChart3 className="w-4 h-4 text-amber-400" />
-                  {t('segFeatureImportance')}
+                  ANOVA F-statistic per Feature
                 </h3>
                 <div className="h-[250px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={featureImportance} layout="vertical" margin={{ left: 40, right: 20 }}>
+                    <BarChart data={anovaResults} layout="vertical" margin={{ left: 40, right: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#27272a" horizontal={false} />
-                      <XAxis type="number" hide />
-                      <YAxis 
-                        dataKey="name" 
-                        type="category" 
-                        stroke="#71717a" 
-                        fontSize={9} 
-                        width={80}
+                      <XAxis type="number" stroke="#71717a" fontSize={9} />
+                      <YAxis
+                        dataKey="name"
+                        type="category"
+                        stroke="#71717a"
+                        fontSize={9}
+                        width={90}
                       />
-                      <Tooltip 
+                      <Tooltip
                         contentStyle={{ backgroundColor: '#18181b', border: '1px solid #3f3f46', borderRadius: '8px' }}
                         labelStyle={{ color: '#a1a1aa', fontSize: '10px' }}
+                        formatter={(value: any) => [Number(value).toFixed(2), 'F']}
                       />
-                      <Area 
-                        type="monotone" 
-                        dataKey="importance" 
-                        stroke="#f59e0b" 
-                        fill="#f59e0b" 
-                        fillOpacity={0.2} 
-                      />
-                    </AreaChart>
+                      <Bar dataKey="fStat" fill="#f59e0b" radius={[0, 4, 4, 0]} />
+                    </BarChart>
                   </ResponsiveContainer>
                 </div>
                 <p className="mt-4 text-[10px] text-zinc-500 leading-relaxed italic">
-                  Importance is calculated as the variance of centroids across clusters. Features with higher variance contribute more to the mathematical separation of your segments.
+                  One-way ANOVA computed per feature on the original (encoded) scale, using cluster membership as the grouping factor. Higher F = the feature differs more between clusters than within them — i.e. it drives the separation.
                 </p>
               </div>
             </div>
           )}
-
-          {/* Raw Data Preview */}
-          <div className="bg-zinc-900 rounded-3xl border border-zinc-800 overflow-hidden">
-            <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
-                <TableIcon className="w-4 h-4 text-zinc-500" />
-                Raw Data Preview
-              </h3>
-              <span className="text-[10px] text-zinc-500 font-mono">{MOCK_DATA.length} records</span>
-            </div>
-            <div className="overflow-x-auto max-h-[300px]">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-zinc-950 text-zinc-500 sticky top-0">
-                  <tr>
-                    <th className="px-6 py-3 font-semibold">ID</th>
-                    <th className="px-6 py-3 font-semibold">Age</th>
-                    <th className="px-6 py-3 font-semibold">Income</th>
-                    <th className="px-6 py-3 font-semibold">Spending</th>
-                    <th className="px-6 py-3 font-semibold">Savings</th>
-                    <th className="px-6 py-3 font-semibold">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800">
-                  {MOCK_DATA.map((row) => (
-                    <tr key={row.id} className="hover:bg-zinc-800/30 transition-colors">
-                      <td className="px-6 py-3 text-zinc-500">#{row.id}</td>
-                      <td className="px-6 py-3 text-zinc-300">{row.age}</td>
-                      <td className="px-6 py-3 text-zinc-300">${row.income.toLocaleString()}</td>
-                      <td className="px-6 py-3 text-zinc-300">{row.spendingScore}</td>
-                      <td className="px-6 py-3 text-zinc-300">${row.savings.toLocaleString()}</td>
-                      <td className="px-6 py-3 text-zinc-300">{row.status}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
 
           {/* Final Results Table */}
           {results && (
@@ -702,7 +840,7 @@ export function CustomerSegmentation() {
               <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
                   <Database className="w-4 h-4 text-zinc-500" />
-                  Clustering Results (Original Data)
+                  3. Clustering Results (Original Data + Cluster Labels)
                 </h3>
                 <button
                   onClick={() => {
