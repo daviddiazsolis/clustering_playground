@@ -36,7 +36,7 @@ const MOCK_DATA: Customer[] = Array.from({ length: 50 }, (_, i) => ({
 type ScalingType = 'none' | 'minmax' | 'standard';
 type EncodingType = 'onehot' | 'mapping';
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#a855f7', '#eab308'];
 
 export function CustomerSegmentation() {
   const { t } = useLanguage();
@@ -59,7 +59,9 @@ export function CustomerSegmentation() {
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>(['income', 'spendingScore']);
   const [k, setK] = useState(3);
   const [results, setResults] = useState<{ assignments: number[], centroids: any[] } | null>(null);
-  const [clusterNames, setClusterNames] = useState<string[]>(['Segment A', 'Segment B', 'Segment C', 'Segment D', 'Segment E', 'Segment F']);
+  const [clusterNames, setClusterNames] = useState<string[]>(
+    Array.from({ length: 10 }, (_, i) => `Segment ${String.fromCharCode(65 + i)}`)
+  );
 
   // Evaluation metrics
   const [metrics, setMetrics] = useState<{ wcss: number; silhouette: number; dbIndex: number } | null>(null);
@@ -125,7 +127,7 @@ export function CustomerSegmentation() {
   useEffect(() => {
     const points: number[][] = processedData.map(d => selectedFeatures.map(f => (d as any)[f]));
     const results = [];
-    for (let i = 2; i <= 8; i++) {
+    for (let i = 2; i <= 10; i++) {
       const { assignments, centroids } = kMeans(points as any, i);
       const wcss = calculateWCSS(points as any, assignments, centroids as any);
       const silhouette = calculateSilhouette(points as any, assignments);
@@ -399,7 +401,7 @@ export function CustomerSegmentation() {
                 <input
                   type="range"
                   min="2"
-                  max="6"
+                  max="10"
                   value={k}
                   onChange={(e) => setK(parseInt(e.target.value))}
                   className="w-full accent-blue-500 mb-6"
