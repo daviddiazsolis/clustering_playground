@@ -2,11 +2,14 @@
 import { ExternalLink, Github, BookOpen } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 
-const COLAB_URL = 'https://colab.research.google.com/github/daviddiazsolis/association_rules_playground/blob/main/notebooks/03_clustering.ipynb';
-const GH_URL    = 'https://github.com/daviddiazsolis/association_rules_playground/blob/main/notebooks/03_clustering.ipynb';
+// El notebook existe en español y en inglés (_EN); el botón abre el del idioma activo.
+const FILE = (l: 'en' | 'es') => (l === 'en' ? '03_clustering_EN.ipynb' : '03_clustering.ipynb');
+const COLAB = (l: 'en' | 'es') => `https://colab.research.google.com/github/daviddiazsolis/association_rules_playground/blob/main/notebooks/${FILE(l)}`;
+const GH = (l: 'en' | 'es') => `https://github.com/daviddiazsolis/association_rules_playground/blob/main/notebooks/${FILE(l)}`;
 
 export function NotebooksSection() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const other = language === 'es' ? 'en' : 'es';
 
   return (
     <section id="notebooks" className="scroll-mt-24">
@@ -27,7 +30,7 @@ export function NotebooksSection() {
 
         <div className="flex flex-wrap gap-2 mt-auto">
           <a
-            href={COLAB_URL}
+            href={COLAB(language)}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors bg-violet-500/20 hover:bg-violet-500/30 text-violet-300 border border-violet-500/40"
@@ -36,7 +39,15 @@ export function NotebooksSection() {
             {t('notebooksOpenColab')}
           </a>
           <a
-            href={GH_URL}
+            href={COLAB(other)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition-colors"
+          >
+            {t('notebooksOther')}
+          </a>
+          <a
+            href={GH(language)}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition-colors"
